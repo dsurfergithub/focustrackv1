@@ -55,3 +55,14 @@
 .celebrate-in { animation: celebrate-in 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 .float { animation: float 3s ease-in-out infinite; }
 .slide-up { animation: slide-up 0.25s ease forwards; }
+
+/* iOS safe-area: push header below notch / Dynamic Island */
+.safe-header-pt {
+  padding-top: 1rem; /* desktop fallback */
+}
+@media (max-width: 767px) {
+  .safe-header-pt {
+    /* max() ensures at least 44px even if env() resolves to 0 */
+    padding-top: calc(max(env(safe-area-inset-top), 44px) + 1rem);
+  }
+}

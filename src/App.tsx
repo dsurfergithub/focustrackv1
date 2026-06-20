@@ -193,7 +193,7 @@ export default function App() {
 
   return (
     <Layout view={view} onNavigate={setView} onOpenSettings={() => setShowSettings(true)} pomodoroRunning={pomodoro.isRunning}>
-      <header className="flex items-center justify-between px-6 pb-4 border-b border-white/5 sticky top-0 bg-[#0a0a0a] z-10" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}>
+      <header className="flex items-center justify-between px-6 pb-4 border-b border-white/5 sticky top-0 bg-[#0a0a0a] z-10 safe-header-pt">
         <div>
           <h1 className="text-base font-semibold text-white">{PAGE_TITLE[view]}</h1>
           {view === 'overview' && (
