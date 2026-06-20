@@ -193,7 +193,7 @@ export default function App() {
 
   return (
     <Layout view={view} onNavigate={setView} onOpenSettings={() => setShowSettings(true)} pomodoroRunning={pomodoro.isRunning}>
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 sticky top-0 bg-[#0a0a0a] z-10">
+      <header className="flex items-center justify-between px-6 pb-4 border-b border-white/5 sticky top-0 bg-[#0a0a0a] z-10" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}>
         <div>
           <h1 className="text-base font-semibold text-white">{PAGE_TITLE[view]}</h1>
           {view === 'overview' && (
@@ -220,7 +220,7 @@ export default function App() {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 py-4 pb-20 md:pb-4">
+      <main className="flex-1 overflow-y-auto px-6 py-4 md:pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}>
         {view === 'overview' && (
           <div className="space-y-2 max-w-2xl mx-auto">
             {activeHabits.length === 0 ? (

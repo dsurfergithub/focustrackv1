@@ -61,7 +61,7 @@ export default function Layout({ view, onNavigate, onOpenSettings, children, pom
         {children}
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex border-t border-white/5 bg-[#0a0a0a] z-10">
+      <nav className="fixed bottom-0 left-0 right-0 md:hidden flex border-t border-white/5 bg-[#0a0a0a] z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {NAV.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
