@@ -15,7 +15,7 @@ import { useSound } from './hooks/useSound'
 import { useTimeTracker } from './hooks/useTimeTracker'
 import { getDayKey, autoGenerateMilestones } from './utils'
 import type { Habit, ViewMode, DayStatus, PomodoroSession, Milestone, AppData, TimeSession } from './types'
-import { DEFAULT_POMODORO_SETTINGS } from './types'
+import { DEFAULT_POMODORO_SETTINGS, NEON_COLORS } from './types'
 
 const STORAGE_HABITS = 'focustrack_habits'
 const STORAGE_SETTINGS = 'focustrack_settings'
@@ -170,9 +170,42 @@ export default function App() {
       const reader = new FileReader()
       reader.onload = ev => {
         try {
-          const data = JSON.parse(ev.target?.result as string) as AppData
-          if (data.habits) setHabits(data.habits)
-          if (data.pomodoroSettings) setPomodoroSettings(data.pomodoroSettings)
+          const raw = JSON.parse(ev.target?.result as string)
+
+          // Legacy HabitPro / HabitOrbit format: has `log` dict, no `exportedAt`
+          if (Array.isArray(raw.habits) && raw.log && !raw.exportedAt) {
+            const statusMap: Record<string, DayStatus> = {
+              done: 'completed', fail: 'failed', skip: 'break', rest: 'break',
+            }
+            const log = raw.log as Record<string, Record<string, string>>
+            const imported: Habit[] = (raw.habits as Array<{ id: string; name: string; emoji?: string; active?: boolean }>)
+              .map((h, i) => {
+                const history: Record<string, DayStatus> = {}
+                for (const [date, dayEntries] of Object.entries(log)) {
+                  if (dayEntries[h.id]) history[date] = statusMap[dayEntries[h.id]] ?? 'none'
+                }
+                const habit: Habit = {
+                  id: h.id,
+                  name: h.name,
+                  color: NEON_COLORS[i % NEON_COLORS.length],
+                  emojiTemplate: h.emoji,
+                  createdAt: new Date().toISOString(),
+                  history,
+                  milestones: [],
+                  pomodoroSessions: [],
+                  timeSessions: [],
+                  archivedAt: h.active === false ? new Date().toISOString() : undefined,
+                }
+                autoGenerateMilestones(habit)
+                return habit
+              })
+            setHabits(imported)
+          } else {
+            // Native FocusTrack format
+            const data = raw as AppData
+            if (data.habits) setHabits(data.habits.map(h => ({ ...h, timeSessions: h.timeSessions ?? [] })))
+            if (data.pomodoroSettings) setPomodoroSettings(data.pomodoroSettings)
+          }
         } catch { alert('Archivo inválido') }
       }
       reader.readAsText(file)
@@ -220,7 +253,7 @@ export default function App() {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 py-4">
+      <main className="flex-1 overflow-y-auto px-6 py-4 md:pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}>
         {view === 'overview' && (
           <div className="space-y-2 max-w-2xl mx-auto">
             {activeHabits.length === 0 ? (
