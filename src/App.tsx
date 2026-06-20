@@ -184,12 +184,16 @@ export default function App() {
                 for (const [date, dayEntries] of Object.entries(log)) {
                   if (dayEntries[h.id]) history[date] = statusMap[dayEntries[h.id]] ?? 'none'
                 }
+                // Use start of the earliest year with entries so the full grid shows
+                const earliest = Object.keys(log).filter(d => !!log[d]?.[h.id]).sort()[0]
+                const year = earliest ? earliest.substring(0, 4) : new Date().getFullYear().toString()
+                const createdAt = `${year}-01-01T00:00:00.000Z`
                 const habit: Habit = {
                   id: h.id,
                   name: h.name,
                   color: NEON_COLORS[i % NEON_COLORS.length],
                   emojiTemplate: h.emoji,
-                  createdAt: new Date().toISOString(),
+                  createdAt,
                   history,
                   milestones: [],
                   pomodoroSessions: [],
