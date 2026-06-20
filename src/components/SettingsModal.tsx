@@ -1,4 +1,4 @@
-import { X, Bell, Volume2 } from 'lucide-react'
+import { X, Bell } from 'lucide-react'
 import type { PomodoroSettings } from '../types'
 
 interface SettingsModalProps {

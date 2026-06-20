@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { format } from 'date-fns'
 import { Download } from 'lucide-react'
 import html2canvas from 'html2canvas'
@@ -13,12 +12,6 @@ interface YearGridProps {
   onToggleDay?: (key: string) => void
 }
 
-const STATUS_CYCLE: DayStatus[] = ['none', 'completed', 'failed', 'break']
-
-function nextStatus(current: DayStatus): DayStatus {
-  const idx = STATUS_CYCLE.indexOf(current)
-  return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
-}
 
 export default function YearGrid({ habit, year, mini = false, onToggleDay }: YearGridProps) {
   const y = year ?? new Date().getFullYear()

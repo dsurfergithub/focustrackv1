@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { NEON_COLORS } from '../types'
 import type { Habit } from '../types'
-import { getDayKey } from '../utils'
+
 
 interface HabitModalProps {
   habit?: Habit | null
