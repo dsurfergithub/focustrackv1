@@ -17,7 +17,6 @@ export default function StatsPanel({ habits }: StatsPanelProps) {
   const maxWeeklyTime = Math.max(...weeklyTime.map(d => d.seconds), 1)
 
   const totalCompletedToday = weeklyData[weeklyData.length - 1]?.completed ?? 0
-  const totalPomodoros = allSessions.filter(s => s.phase === 'work' && s.completed).length
   const totalTrackedToday = activeHabits.reduce((acc, h) => acc + getTodayTrackedSeconds(h.timeSessions ?? []), 0)
   const avgRate = activeHabits.length > 0
     ? Math.round(activeHabits.reduce((acc, h) => acc + getCompletionRate(h), 0) / activeHabits.length)

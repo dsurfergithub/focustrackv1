@@ -23,7 +23,7 @@ const STORAGE_SETTINGS = 'focustrack_settings'
 function loadHabits(): Habit[] {
   try {
     const raw: Habit[] = JSON.parse(localStorage.getItem(STORAGE_HABITS) ?? '[]')
-    return raw.map(h => ({ timeSessions: [], ...h }))
+    return raw.map(h => ({ ...h, timeSessions: h.timeSessions ?? [] }))
   } catch { return [] }
 }
 
