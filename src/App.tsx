@@ -220,7 +220,7 @@ export default function App() {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 py-4 md:pb-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}>
+      <main className="flex-1 overflow-y-auto px-6 py-4">
         {view === 'overview' && (
           <div className="space-y-2 max-w-2xl mx-auto">
             {activeHabits.length === 0 ? (
