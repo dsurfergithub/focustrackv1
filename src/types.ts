@@ -14,6 +14,21 @@ export interface Milestone {
   auto: boolean
 }
 
+export interface TimeSession {
+  id: string
+  habitId: string
+  date: string
+  startedAt: string
+  stoppedAt: string
+  duration: number
+  note?: string
+}
+
+export interface ActiveTracker {
+  habitId: string
+  startedAt: string
+}
+
 export interface PomodoroSession {
   id: string
   habitId: string | null
@@ -33,6 +48,8 @@ export interface Habit {
   history: Record<string, DayStatus>
   milestones: Milestone[]
   pomodoroSessions: PomodoroSession[]
+  timeSessions: TimeSession[]
+  dailyTimeGoal?: number
   cumulativeTarget?: number
   rewardTemplate?: string
   emojiTemplate?: string

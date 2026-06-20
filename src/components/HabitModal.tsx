@@ -15,6 +15,7 @@ export default function HabitModal({ habit, onSave, onClose }: HabitModalProps) 
   const [color, setColor] = useState(habit?.color ?? NEON_COLORS[0])
   const [description, setDescription] = useState(habit?.description ?? '')
   const [target, setTarget] = useState(String(habit?.cumulativeTarget ?? ''))
+  const [dailyTimeGoal, setDailyTimeGoal] = useState(String(habit?.dailyTimeGoal ?? ''))
   const [emoji, setEmoji] = useState(habit?.emojiTemplate ?? '🏆')
   const [reward, setReward] = useState(habit?.rewardTemplate ?? '')
 
@@ -33,12 +34,14 @@ export default function HabitModal({ habit, onSave, onClose }: HabitModalProps) 
       color,
       description: description.trim() || undefined,
       cumulativeTarget: target ? Number(target) : undefined,
+      dailyTimeGoal: dailyTimeGoal ? Number(dailyTimeGoal) : undefined,
       emojiTemplate: emoji || undefined,
       rewardTemplate: reward.trim() || undefined,
       createdAt: habit?.createdAt ?? new Date().toISOString(),
       history: habit?.history ?? {},
       milestones: habit?.milestones ?? [],
       pomodoroSessions: habit?.pomodoroSessions ?? [],
+      timeSessions: habit?.timeSessions ?? [],
     })
     onClose()
   }
@@ -96,8 +99,8 @@ export default function HabitModal({ habit, onSave, onClose }: HabitModalProps) 
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="block text-xs text-gray-500 mb-1.5">Meta de días</label>
               <input
                 value={target}
@@ -108,7 +111,21 @@ export default function HabitModal({ habit, onSave, onClose }: HabitModalProps) 
                 className="w-full bg-[#1a1a1a] border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-white/20 transition-colors"
               />
             </div>
-            <div className="col-span-1">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Meta de tiempo/día <span className="text-gray-700">min</span></label>
+              <input
+                value={dailyTimeGoal}
+                onChange={e => setDailyTimeGoal(e.target.value)}
+                type="number"
+                min="1"
+                placeholder="60"
+                className="w-full bg-[#1a1a1a] border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-white/20 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="block text-xs text-gray-500 mb-1.5">Emoji logro</label>
               <input
                 value={emoji}
@@ -117,7 +134,7 @@ export default function HabitModal({ habit, onSave, onClose }: HabitModalProps) 
                 className="w-full bg-[#1a1a1a] border border-white/8 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-700 focus:outline-none focus:border-white/20 transition-colors"
               />
             </div>
-            <div className="col-span-1">
+            <div>
               <label className="block text-xs text-gray-500 mb-1.5">Recompensa</label>
               <input
                 value={reward}

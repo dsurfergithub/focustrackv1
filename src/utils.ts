@@ -1,6 +1,6 @@
 import { format, eachDayOfInterval, startOfYear, endOfYear, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { DayStatus, Habit, PomodoroSession } from './types'
+import type { DayStatus, Habit, PomodoroSession, TimeSession } from './types'
 
 export function getDayKey(date: Date): string {
   return format(date, 'yyyy-MM-dd')
@@ -135,6 +135,43 @@ export function getMonthlyPomodoros(sessions: PomodoroSession[]): { week: string
     result.push({ week: `S-${w + 1}`, count })
   }
   return result
+}
+
+export function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+}
+
+export function formatDurationHuman(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h > 0 && m > 0) return `${h}h ${m}m`
+  if (h > 0) return `${h}h`
+  if (m > 0) return `${m}m`
+  return `${seconds}s`
+}
+
+export function getTodayTrackedSeconds(sessions: TimeSession[]): number {
+  const today = getDayKey(new Date())
+  return sessions.filter(s => s.date === today).reduce((acc, s) => acc + s.duration, 0)
+}
+
+export function getWeeklyTimeStats(habits: Habit[]): { day: string; seconds: number }[] {
+  const today = new Date()
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - (6 - i))
+    const key = getDayKey(d)
+    const raw = format(d, 'EEE', { locale: es })
+    const label = raw.charAt(0).toUpperCase() + raw.slice(1, 3)
+    const seconds = habits.flatMap(h => h.timeSessions ?? [])
+      .filter(s => s.date === key)
+      .reduce((acc, s) => acc + s.duration, 0)
+    return { day: label, seconds }
+  })
 }
 
 export function autoGenerateMilestones(habit: Habit): void {

@@ -9,17 +9,22 @@ import HabitModal from './components/HabitModal'
 import SettingsModal from './components/SettingsModal'
 import MilestoneCelebration from './components/MilestoneCelebration'
 import ConfirmationModal from './components/ConfirmationModal'
+import StopSessionModal from './components/StopSessionModal'
 import { usePomodoro } from './hooks/usePomodoro'
 import { useSound } from './hooks/useSound'
+import { useTimeTracker } from './hooks/useTimeTracker'
 import { getDayKey, autoGenerateMilestones } from './utils'
-import type { Habit, ViewMode, DayStatus, PomodoroSession, Milestone, AppData } from './types'
+import type { Habit, ViewMode, DayStatus, PomodoroSession, Milestone, AppData, TimeSession } from './types'
 import { DEFAULT_POMODORO_SETTINGS } from './types'
 
 const STORAGE_HABITS = 'focustrack_habits'
 const STORAGE_SETTINGS = 'focustrack_settings'
 
 function loadHabits(): Habit[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_HABITS) ?? '[]') } catch { return [] }
+  try {
+    const raw: Habit[] = JSON.parse(localStorage.getItem(STORAGE_HABITS) ?? '[]')
+    return raw.map(h => ({ timeSessions: [], ...h }))
+  } catch { return [] }
 }
 
 function loadSettings() {
@@ -40,8 +45,10 @@ export default function App() {
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string; message: string; danger?: boolean; onConfirm: () => void
   } | null>(null)
+  const [showStopModal, setShowStopModal] = useState(false)
 
   const { playBell, playMilestone, startTick, stopTick } = useSound(pomodoroSettings)
+  const tracker = useTimeTracker()
 
   const handleSessionComplete = useCallback((session: PomodoroSession) => {
     setHabits(prev => {
@@ -69,6 +76,29 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem(STORAGE_HABITS, JSON.stringify(habits)) }, [habits])
   useEffect(() => { localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(pomodoroSettings)) }, [pomodoroSettings])
+
+  function saveTimeSession(session: TimeSession) {
+    setHabits(prev => prev.map(h =>
+      h.id === session.habitId
+        ? { ...h, timeSessions: [...(h.timeSessions ?? []), session] }
+        : h
+    ))
+  }
+
+  function handleStopTracking() {
+    setShowStopModal(true)
+  }
+
+  function handleConfirmStop(note?: string) {
+    const session = tracker.finishTracking(note)
+    if (session) saveTimeSession(session)
+    setShowStopModal(false)
+  }
+
+  function handleDiscardStop() {
+    tracker.cancelTracking()
+    setShowStopModal(false)
+  }
 
   function saveHabit(data: Partial<Habit>) {
     setHabits(prev => {
@@ -223,6 +253,10 @@ export default function App() {
                     onDelete={() => deleteHabit(habit.id)}
                     onStartPomodoro={() => startPomodoroForHabit(habit.id)}
                     onToggleDay={key => toggleDay(habit.id, key)}
+                    isTracking={tracker.activeTracker?.habitId === habit.id}
+                    elapsedSeconds={tracker.activeTracker?.habitId === habit.id ? tracker.elapsedSeconds : 0}
+                    onStartTracking={() => tracker.startTracking(habit.id)}
+                    onStopTracking={handleStopTracking}
                   />
                 ))}
               </div>
@@ -272,6 +306,17 @@ export default function App() {
       {celebration && (
         <MilestoneCelebration milestone={celebration.milestone} habit={celebration.habit} onClose={() => setCelebration(null)} />
       )}
+      {showStopModal && tracker.activeTracker && (() => {
+        const habit = habits.find(h => h.id === tracker.activeTracker!.habitId)
+        return habit ? (
+          <StopSessionModal
+            elapsedSeconds={tracker.elapsedSeconds}
+            habit={habit}
+            onConfirm={handleConfirmStop}
+            onDiscard={handleDiscardStop}
+          />
+        ) : null
+      })()}
       {confirmConfig && (
         <ConfirmationModal
           title={confirmConfig.title}

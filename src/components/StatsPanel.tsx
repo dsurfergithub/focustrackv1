@@ -1,4 +1,4 @@
-import { getWeeklyStats, getMonthlyPomodoros, calculateStreak, getCompletionRate } from '../utils'
+import { getWeeklyStats, getMonthlyPomodoros, calculateStreak, getCompletionRate, getTodayTrackedSeconds, getWeeklyTimeStats, formatDurationHuman } from '../utils'
 import type { Habit } from '../types'
 
 interface StatsPanelProps {
@@ -10,12 +10,15 @@ export default function StatsPanel({ habits }: StatsPanelProps) {
   const weeklyData = getWeeklyStats(activeHabits)
   const allSessions = activeHabits.flatMap(h => h.pomodoroSessions)
   const monthlyPomodoros = getMonthlyPomodoros(allSessions)
+  const weeklyTime = getWeeklyTimeStats(activeHabits)
 
   const maxWeekly = Math.max(...weeklyData.map(d => d.completed), 1)
   const maxMonthly = Math.max(...monthlyPomodoros.map(d => d.count), 1)
+  const maxWeeklyTime = Math.max(...weeklyTime.map(d => d.seconds), 1)
 
   const totalCompletedToday = weeklyData[weeklyData.length - 1]?.completed ?? 0
   const totalPomodoros = allSessions.filter(s => s.phase === 'work' && s.completed).length
+  const totalTrackedToday = activeHabits.reduce((acc, h) => acc + getTodayTrackedSeconds(h.timeSessions ?? []), 0)
   const avgRate = activeHabits.length > 0
     ? Math.round(activeHabits.reduce((acc, h) => acc + getCompletionRate(h), 0) / activeHabits.length)
     : 0
@@ -26,20 +29,20 @@ export default function StatsPanel({ habits }: StatsPanelProps) {
         {[
           { label: 'Hábitos activos', value: activeHabits.length, accent: '#a3e635' },
           { label: 'Completados hoy', value: totalCompletedToday, accent: '#22d3ee' },
-          { label: 'Pomodoros totales', value: totalPomodoros, accent: '#7c3aed' },
+          { label: 'Tiempo trackeado hoy', value: formatDurationHuman(totalTrackedToday) || '—', accent: '#f97316' },
           { label: 'Tasa media 30d', value: `${avgRate}%`, accent: avgRate >= 70 ? '#a3e635' : avgRate >= 40 ? '#facc15' : '#ef4444' },
         ].map(({ label, value, accent }) => (
           <div key={label} className="bg-[#111] border border-white/5 rounded-2xl p-4">
             <p className="text-xs text-gray-600 mb-1">{label}</p>
-            <p className="text-3xl font-bold" style={{ color: accent }}>{value}</p>
+            <p className="text-2xl font-bold" style={{ color: accent }}>{value}</p>
           </div>
         ))}
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="bg-[#111] border border-white/5 rounded-2xl p-4">
-          <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Hábitos completados · últimos 7 días</h3>
-          <div className="flex items-end gap-2 h-32">
+          <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Hábitos completados · 7 días</h3>
+          <div className="flex items-end gap-2 h-28">
             {weeklyData.map(({ day, completed }) => (
               <div key={day} className="flex-1 flex flex-col items-center gap-1">
                 <span className="text-[10px] text-gray-600">{completed > 0 ? completed : ''}</span>
@@ -55,8 +58,27 @@ export default function StatsPanel({ habits }: StatsPanelProps) {
         </div>
 
         <div className="bg-[#111] border border-white/5 rounded-2xl p-4">
-          <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Pomodoros · últimas 4 semanas</h3>
-          <div className="flex items-end gap-2 h-32">
+          <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Tiempo trackeado · 7 días</h3>
+          <div className="flex items-end gap-2 h-28">
+            {weeklyTime.map(({ day, seconds }) => (
+              <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                <span className="text-[10px] text-gray-600">{seconds > 0 ? formatDurationHuman(seconds) : ''}</span>
+                <div className="w-full rounded-t-sm transition-all" style={{
+                  height: `${(seconds / maxWeeklyTime) * 100}%`,
+                  minHeight: seconds > 0 ? '4px' : '2px',
+                  backgroundColor: seconds > 0 ? '#f97316cc' : '#1a1a1a',
+                }} />
+                <span className="text-[10px] text-gray-600">{day}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="bg-[#111] border border-white/5 rounded-2xl p-4">
+          <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Pomodoros · 4 semanas</h3>
+          <div className="flex items-end gap-2 h-28">
             {monthlyPomodoros.map(({ week, count }) => (
               <div key={week} className="flex-1 flex flex-col items-center gap-1">
                 <span className="text-[10px] text-gray-600">{count > 0 ? count : ''}</span>
@@ -70,10 +92,38 @@ export default function StatsPanel({ habits }: StatsPanelProps) {
             ))}
           </div>
         </div>
+
+        <div className="bg-[#111] border border-white/5 rounded-2xl p-4">
+          <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Tiempo total por hábito</h3>
+          <div className="space-y-2.5">
+            {activeHabits
+              .map(h => ({
+                h,
+                total: (h.timeSessions ?? []).reduce((acc, s) => acc + s.duration, 0),
+              }))
+              .sort((a, b) => b.total - a.total)
+              .map(({ h, total }) => {
+                const maxTotal = Math.max(...activeHabits.map(x => (x.timeSessions ?? []).reduce((a, s) => a + s.duration, 0)), 1)
+                return (
+                  <div key={h.id} className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: h.color }} />
+                    <span className="text-xs text-gray-300 flex-1 truncate">{h.name}</span>
+                    <div className="w-24 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(total / maxTotal) * 100}%`, backgroundColor: h.color + 'cc' }} />
+                    </div>
+                    <span className="text-xs text-gray-500 w-12 text-right">{total > 0 ? formatDurationHuman(total) : '—'}</span>
+                  </div>
+                )
+              })}
+            {activeHabits.length === 0 && (
+              <p className="text-sm text-gray-600 text-center py-4">Sin hábitos activos</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="bg-[#111] border border-white/5 rounded-2xl p-4">
-        <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Ranking de hábitos · tasa de cumplimiento</h3>
+        <h3 className="text-xs text-gray-500 mb-4 uppercase tracking-wider">Ranking · tasa de cumplimiento</h3>
         <div className="space-y-3">
           {activeHabits
             .map(h => ({ h, rate: getCompletionRate(h), ...calculateStreak(h.history) }))
@@ -84,16 +134,11 @@ export default function StatsPanel({ habits }: StatsPanelProps) {
                 <span className="text-sm text-gray-300 flex-1 truncate">{h.name}</span>
                 <span className="text-xs text-gray-600 w-8 text-right">{current}d</span>
                 <div className="w-32 h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${rate}%`, backgroundColor: h.color + 'cc' }}
-                  />
+                  <div className="h-full rounded-full" style={{ width: `${rate}%`, backgroundColor: h.color + 'cc' }} />
                 </div>
                 <span className="text-xs font-medium w-10 text-right" style={{
                   color: rate >= 70 ? '#a3e635' : rate >= 40 ? '#facc15' : '#ef4444'
-                }}>
-                  {rate}%
-                </span>
+                }}>{rate}%</span>
               </div>
             ))}
           {activeHabits.length === 0 && (
