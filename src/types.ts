@@ -1,6 +1,8 @@
 export type DayStatus = 'completed' | 'failed' | 'break' | 'none'
 
-export type ViewMode = 'overview' | 'pomodoro' | 'individual' | 'stats' | 'trophies'
+export type ViewMode = 'overview' | 'pomodoro' | 'goals' | 'stats' | 'trophies'
+
+export type GoalsTab = 'countdown' | 'abstinence'
 
 export type PomodoroPhase = 'work' | 'short_break' | 'long_break' | 'idle'
 
@@ -57,6 +59,34 @@ export interface Habit {
   archivedAt?: string
 }
 
+export interface Countdown {
+  id: string
+  title: string
+  targetDate: string
+  color: string
+  emoji?: string
+  note?: string
+  createdAt: string
+  completedAt?: string
+}
+
+export interface Relapse {
+  date: string
+  note?: string
+}
+
+export interface AbstinenceTracker {
+  id: string
+  name: string
+  color: string
+  emoji?: string
+  startedAt: string
+  createdAt: string
+  relapses: Relapse[]
+  costPerDay?: number
+  celebratedMilestones: number[]
+}
+
 export interface PomodoroSettings {
   workDuration: number
   shortBreak: number
@@ -71,8 +101,12 @@ export interface PomodoroSettings {
 export interface AppData {
   habits: Habit[]
   pomodoroSettings: PomodoroSettings
+  countdowns?: Countdown[]
+  abstinenceTrackers?: AbstinenceTracker[]
   exportedAt: string
 }
+
+export const ABSTINENCE_MILESTONES = [1, 3, 7, 14, 30, 60, 90, 180, 365]
 
 export const NEON_COLORS = [
   '#a3e635',

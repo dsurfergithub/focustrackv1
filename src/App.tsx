@@ -10,15 +10,21 @@ import SettingsModal from './components/SettingsModal'
 import MilestoneCelebration from './components/MilestoneCelebration'
 import ConfirmationModal from './components/ConfirmationModal'
 import StopSessionModal from './components/StopSessionModal'
+import GoalsView from './components/GoalsView'
+import CountdownModal from './components/CountdownModal'
+import AbstinenceModal from './components/AbstinenceModal'
 import { usePomodoro } from './hooks/usePomodoro'
 import { useSound } from './hooks/useSound'
 import { useTimeTracker } from './hooks/useTimeTracker'
+import { useNow } from './hooks/useNow'
 import { getDayKey, autoGenerateMilestones } from './utils'
-import type { Habit, ViewMode, DayStatus, PomodoroSession, Milestone, AppData, TimeSession } from './types'
+import type { Habit, ViewMode, DayStatus, PomodoroSession, Milestone, AppData, TimeSession, Countdown, AbstinenceTracker, GoalsTab } from './types'
 import { DEFAULT_POMODORO_SETTINGS, NEON_COLORS } from './types'
 
 const STORAGE_HABITS = 'focustrack_habits'
 const STORAGE_SETTINGS = 'focustrack_settings'
+const STORAGE_COUNTDOWNS = 'focustrack_countdowns'
+const STORAGE_ABSTINENCE = 'focustrack_abstinence'
 
 function loadHabits(): Habit[] {
   try {
@@ -31,6 +37,20 @@ function loadSettings() {
   try { return { ...DEFAULT_POMODORO_SETTINGS, ...JSON.parse(localStorage.getItem(STORAGE_SETTINGS) ?? '{}') } }
   catch { return DEFAULT_POMODORO_SETTINGS }
 }
+
+function loadCountdowns(): Countdown[] {
+  try { return JSON.parse(localStorage.getItem(STORAGE_COUNTDOWNS) ?? '[]') } catch { return [] }
+}
+
+function loadAbstinence(): AbstinenceTracker[] {
+  try {
+    const raw: AbstinenceTracker[] = JSON.parse(localStorage.getItem(STORAGE_ABSTINENCE) ?? '[]')
+    return raw.map(t => ({ ...t, relapses: t.relapses ?? [], celebratedMilestones: t.celebratedMilestones ?? [] }))
+  } catch { return [] }
+}
+
+// Lightweight celebration payload shared by countdown/abstinence achievements.
+interface GoalCelebration { emoji: string; label: string; name: string; color: string; reward?: string }
 
 export default function App() {
   const [view, setView] = useState<ViewMode>('overview')
@@ -46,6 +66,17 @@ export default function App() {
     title: string; message: string; danger?: boolean; onConfirm: () => void
   } | null>(null)
   const [showStopModal, setShowStopModal] = useState(false)
+
+  const [countdowns, setCountdowns] = useState<Countdown[]>(loadCountdowns)
+  const [abstinenceTrackers, setAbstinenceTrackers] = useState<AbstinenceTracker[]>(loadAbstinence)
+  const [goalsTab, setGoalsTab] = useState<GoalsTab>('countdown')
+  const [showCountdownModal, setShowCountdownModal] = useState(false)
+  const [editingCountdown, setEditingCountdown] = useState<Countdown | null>(null)
+  const [showAbstinenceModal, setShowAbstinenceModal] = useState(false)
+  const [editingAbstinence, setEditingAbstinence] = useState<AbstinenceTracker | null>(null)
+  const [goalCelebration, setGoalCelebration] = useState<GoalCelebration | null>(null)
+
+  const now = useNow()
 
   const { playBell, playMilestone, startTick, stopTick } = useSound(pomodoroSettings)
   const tracker = useTimeTracker()
@@ -76,13 +107,23 @@ export default function App() {
 
   useEffect(() => { localStorage.setItem(STORAGE_HABITS, JSON.stringify(habits)) }, [habits])
   useEffect(() => { localStorage.setItem(STORAGE_SETTINGS, JSON.stringify(pomodoroSettings)) }, [pomodoroSettings])
+  useEffect(() => { localStorage.setItem(STORAGE_COUNTDOWNS, JSON.stringify(countdowns)) }, [countdowns])
+  useEffect(() => { localStorage.setItem(STORAGE_ABSTINENCE, JSON.stringify(abstinenceTrackers)) }, [abstinenceTrackers])
 
   function saveTimeSession(session: TimeSession) {
-    setHabits(prev => prev.map(h =>
-      h.id === session.habitId
-        ? { ...h, timeSessions: [...(h.timeSessions ?? []), session] }
-        : h
-    ))
+    setHabits(prev => prev.map(h => {
+      if (h.id !== session.habitId) return h
+      // Saving a tracked session marks that day as completed automatically.
+      const updated: Habit = {
+        ...h,
+        timeSessions: [...(h.timeSessions ?? []), session],
+        history: { ...h.history, [session.date]: 'completed' },
+      }
+      autoGenerateMilestones(updated)
+      const newM = updated.milestones.find(m => !h.milestones.find(o => o.id === m.id))
+      if (newM) setTimeout(() => { playMilestone(); setCelebration({ milestone: newM, habit: updated }) }, 300)
+      return updated
+    }))
   }
 
   function handleStopTracking() {
@@ -152,8 +193,83 @@ export default function App() {
     setView('pomodoro')
   }
 
+  // --- Countdowns ---
+  function saveCountdown(data: Countdown) {
+    setCountdowns(prev => {
+      const exists = prev.find(c => c.id === data.id)
+      return exists ? prev.map(c => c.id === data.id ? data : c) : [...prev, data]
+    })
+  }
+
+  function deleteCountdown(id: string) {
+    const c = countdowns.find(x => x.id === id)
+    setConfirmConfig({
+      title: 'Eliminar meta',
+      message: `Se eliminará "${c?.title ?? 'esta meta'}" y su cuenta atrás.`,
+      danger: true,
+      onConfirm: () => { setCountdowns(prev => prev.filter(x => x.id !== id)); setConfirmConfig(null) },
+    })
+  }
+
+  function completeCountdown(id: string) {
+    setCountdowns(prev => prev.map(c => {
+      if (c.id !== id || c.completedAt) return c
+      const updated = { ...c, completedAt: new Date().toISOString() }
+      setTimeout(() => {
+        playMilestone()
+        setGoalCelebration({ emoji: c.emoji ?? '🎯', label: '¡Meta conseguida!', name: c.title, color: c.color })
+      }, 300)
+      return updated
+    }))
+  }
+
+  // --- Abstinence ---
+  function saveAbstinence(data: AbstinenceTracker) {
+    setAbstinenceTrackers(prev => {
+      const exists = prev.find(t => t.id === data.id)
+      return exists ? prev.map(t => t.id === data.id ? data : t) : [...prev, data]
+    })
+  }
+
+  function deleteAbstinence(id: string) {
+    const t = abstinenceTrackers.find(x => x.id === id)
+    setConfirmConfig({
+      title: 'Eliminar reto',
+      message: `Se eliminará "Sin ${t?.name.toLowerCase() ?? 'este hábito'}" y su historial de recaídas.`,
+      danger: true,
+      onConfirm: () => { setAbstinenceTrackers(prev => prev.filter(x => x.id !== id)); setConfirmConfig(null) },
+    })
+  }
+
+  function relapseAbstinence(id: string) {
+    const t = abstinenceTrackers.find(x => x.id === id)
+    setConfirmConfig({
+      title: 'Registrar recaída',
+      message: `El contador de "Sin ${t?.name.toLowerCase() ?? 'este hábito'}" se reiniciará a cero. Tu récord se conserva.`,
+      danger: true,
+      onConfirm: () => {
+        const nowIso = new Date().toISOString()
+        setAbstinenceTrackers(prev => prev.map(x => x.id === id
+          ? { ...x, relapses: [...x.relapses, { date: nowIso }], startedAt: nowIso, celebratedMilestones: [] }
+          : x))
+        setConfirmConfig(null)
+      },
+    })
+  }
+
+  function celebrateAbstinenceMilestone(id: string, days: number) {
+    setAbstinenceTrackers(prev => prev.map(t => {
+      if (t.id !== id || t.celebratedMilestones.includes(days)) return t
+      setTimeout(() => {
+        playMilestone()
+        setGoalCelebration({ emoji: t.emoji ?? '🚫', label: `${days} ${days === 1 ? 'día' : 'días'} sin ${t.name.toLowerCase()}`, name: '¡Sigue así!', color: t.color })
+      }, 300)
+      return { ...t, celebratedMilestones: [...t.celebratedMilestones, days] }
+    }))
+  }
+
   function exportData() {
-    const data: AppData = { habits, pomodoroSettings, exportedAt: new Date().toISOString() }
+    const data: AppData = { habits, pomodoroSettings, countdowns, abstinenceTrackers, exportedAt: new Date().toISOString() }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -209,6 +325,8 @@ export default function App() {
             const data = raw as AppData
             if (data.habits) setHabits(data.habits.map(h => ({ ...h, timeSessions: h.timeSessions ?? [] })))
             if (data.pomodoroSettings) setPomodoroSettings(data.pomodoroSettings)
+            if (data.countdowns) setCountdowns(data.countdowns)
+            if (data.abstinenceTrackers) setAbstinenceTrackers(data.abstinenceTrackers.map(t => ({ ...t, relapses: t.relapses ?? [], celebratedMilestones: t.celebratedMilestones ?? [] })))
           }
         } catch { alert('Archivo inválido') }
       }
@@ -223,7 +341,7 @@ export default function App() {
   const PAGE_TITLE: Record<ViewMode, string> = {
     overview: 'Mis hábitos',
     pomodoro: 'Pomodoro',
-    individual: 'Detalle',
+    goals: 'Metas',
     stats: 'Estadísticas',
     trophies: 'Logros',
   }
@@ -321,6 +439,25 @@ export default function App() {
           </div>
         )}
 
+        {view === 'goals' && (
+          <GoalsView
+            tab={goalsTab}
+            onTabChange={setGoalsTab}
+            countdowns={countdowns}
+            abstinenceTrackers={abstinenceTrackers}
+            now={now}
+            onAddCountdown={() => { setEditingCountdown(null); setShowCountdownModal(true) }}
+            onEditCountdown={c => { setEditingCountdown(c); setShowCountdownModal(true) }}
+            onDeleteCountdown={deleteCountdown}
+            onCompleteCountdown={completeCountdown}
+            onAddAbstinence={() => { setEditingAbstinence(null); setShowAbstinenceModal(true) }}
+            onEditAbstinence={t => { setEditingAbstinence(t); setShowAbstinenceModal(true) }}
+            onDeleteAbstinence={deleteAbstinence}
+            onRelapse={relapseAbstinence}
+            onMilestone={celebrateAbstinenceMilestone}
+          />
+        )}
+
         {view === 'stats' && (
           <div className="max-w-3xl mx-auto">
             <StatsPanel habits={habits} />
@@ -342,6 +479,27 @@ export default function App() {
       )}
       {celebration && (
         <MilestoneCelebration milestone={celebration.milestone} habit={celebration.habit} onClose={() => setCelebration(null)} />
+      )}
+      {goalCelebration && (
+        <MilestoneCelebration
+          milestone={{ id: 'goal', dayIndex: 0, label: goalCelebration.label, date: '', emoji: goalCelebration.emoji, reward: goalCelebration.reward, auto: true }}
+          habit={{ name: goalCelebration.name, color: goalCelebration.color } as Habit}
+          onClose={() => setGoalCelebration(null)}
+        />
+      )}
+      {showCountdownModal && (
+        <CountdownModal
+          countdown={editingCountdown}
+          onSave={saveCountdown}
+          onClose={() => { setShowCountdownModal(false); setEditingCountdown(null) }}
+        />
+      )}
+      {showAbstinenceModal && (
+        <AbstinenceModal
+          tracker={editingAbstinence}
+          onSave={saveAbstinence}
+          onClose={() => { setShowAbstinenceModal(false); setEditingAbstinence(null) }}
+        />
       )}
       {showStopModal && tracker.activeTracker && (() => {
         const habit = habits.find(h => h.id === tracker.activeTracker!.habitId)

@@ -1,6 +1,6 @@
 import { format, eachDayOfInterval, startOfYear, endOfYear, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { DayStatus, Habit, PomodoroSession, TimeSession } from './types'
+import type { DayStatus, Habit, PomodoroSession, TimeSession, AbstinenceTracker } from './types'
 
 export function getDayKey(date: Date): string {
   return format(date, 'yyyy-MM-dd')
@@ -172,6 +172,75 @@ export function getWeeklyTimeStats(habits: Habit[]): { day: string; seconds: num
       .reduce((acc, s) => acc + s.duration, 0)
     return { day: label, seconds }
   })
+}
+
+export interface TimeParts {
+  days: number
+  hours: number
+  minutes: number
+  seconds: number
+  totalMs: number
+  past: boolean
+}
+
+/** Break a millisecond span into d/h/m/s. `totalMs` keeps the sign (negative = in the past). */
+export function splitDuration(ms: number): TimeParts {
+  const past = ms < 0
+  const abs = Math.abs(ms)
+  return {
+    days: Math.floor(abs / 86400000),
+    hours: Math.floor((abs % 86400000) / 3600000),
+    minutes: Math.floor((abs % 3600000) / 60000),
+    seconds: Math.floor((abs % 60000) / 1000),
+    totalMs: ms,
+    past,
+  }
+}
+
+/** Time left until an ISO target relative to `now` (ms epoch). */
+export function getTimeRemaining(targetISO: string, now: number): TimeParts {
+  return splitDuration(new Date(targetISO).getTime() - now)
+}
+
+/** Fraction (0–1) of the way from creation to target. */
+export function getCountdownProgress(createdAt: string, targetDate: string, now: number): number {
+  const start = new Date(createdAt).getTime()
+  const end = new Date(targetDate).getTime()
+  if (end <= start) return 1
+  return Math.min(Math.max((now - start) / (end - start), 0), 1)
+}
+
+export interface AbstinenceStats {
+  currentMs: number
+  bestMs: number
+  attempts: number
+  moneySaved: number | null
+}
+
+export function getAbstinenceStats(t: AbstinenceTracker, now: number): AbstinenceStats {
+  const relapseDates = t.relapses
+    .map(r => new Date(r.date).getTime())
+    .sort((a, b) => a - b)
+  const boundaries = [new Date(t.createdAt).getTime(), ...relapseDates]
+
+  let best = 0
+  for (let i = 0; i < relapseDates.length; i++) {
+    best = Math.max(best, relapseDates[i] - boundaries[i])
+  }
+  const currentMs = Math.max(0, now - new Date(t.startedAt).getTime())
+  best = Math.max(best, currentMs)
+
+  const moneySaved = t.costPerDay != null
+    ? (currentMs / 86400000) * t.costPerDay
+    : null
+
+  return { currentMs, bestMs: best, attempts: t.relapses.length, moneySaved }
+}
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
+  }).format(amount)
 }
 
 export function autoGenerateMilestones(habit: Habit): void {
