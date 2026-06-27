@@ -95,6 +95,7 @@ export interface PomodoroSettings {
   soundBell: boolean
   soundMilestone: boolean
   soundTick: boolean
+  soundUi: boolean
   autoStartBreaks: boolean
 }
 
@@ -132,5 +133,6 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
   soundBell: true,
   soundMilestone: true,
   soundTick: false,
+  soundUi: true,
   autoStartBreaks: false,
 }
