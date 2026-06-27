@@ -18,6 +18,7 @@ import { useSound } from './hooks/useSound'
 import { useTimeTracker } from './hooks/useTimeTracker'
 import { useNow } from './hooks/useNow'
 import { getDayKey, autoGenerateMilestones } from './utils'
+import { sfx, setSfxEnabled } from './sfx'
 import type { Habit, ViewMode, DayStatus, PomodoroSession, Milestone, AppData, TimeSession, Countdown, AbstinenceTracker, GoalsTab } from './types'
 import { DEFAULT_POMODORO_SETTINGS, NEON_COLORS } from './types'
 
@@ -110,6 +111,19 @@ export default function App() {
   useEffect(() => { localStorage.setItem(STORAGE_COUNTDOWNS, JSON.stringify(countdowns)) }, [countdowns])
   useEffect(() => { localStorage.setItem(STORAGE_ABSTINENCE, JSON.stringify(abstinenceTrackers)) }, [abstinenceTrackers])
 
+  // Keep the SFX engine in sync with the user's preference.
+  useEffect(() => { setSfxEnabled(pomodoroSettings.soundUi) }, [pomodoroSettings.soundUi])
+
+  // Global click blip on any button, unless it opts out with data-sfx="mute".
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const btn = (e.target as HTMLElement | null)?.closest('button')
+      if (btn && btn.dataset.sfx !== 'mute' && !btn.disabled) sfx.tap()
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [])
+
   function saveTimeSession(session: TimeSession) {
     setHabits(prev => prev.map(h => {
       if (h.id !== session.habitId) return h
@@ -120,6 +134,7 @@ export default function App() {
         history: { ...h.history, [session.date]: 'completed' },
       }
       autoGenerateMilestones(updated)
+      sfx.complete()
       const newM = updated.milestones.find(m => !h.milestones.find(o => o.id === m.id))
       if (newM) setTimeout(() => { playMilestone(); setCelebration({ milestone: newM, habit: updated }) }, 300)
       return updated
@@ -142,6 +157,7 @@ export default function App() {
   }
 
   function saveHabit(data: Partial<Habit>) {
+    sfx.success()
     setHabits(prev => {
       const exists = prev.find(h => h.id === data.id)
       if (exists) return prev.map(h => h.id === data.id ? { ...h, ...data } as Habit : h)
@@ -155,6 +171,7 @@ export default function App() {
       const current = h.history[key] ?? 'none'
       const cycle: DayStatus[] = ['none', 'completed', 'failed', 'break']
       const next = cycle[(cycle.indexOf(current) + 1) % cycle.length]
+      if (next === 'completed') sfx.complete()
       const updated = { ...h, history: { ...h.history, [key]: next } }
       autoGenerateMilestones(updated)
       const newM = updated.milestones.find(m => !h.milestones.find(o => o.id === m.id))
@@ -165,6 +182,7 @@ export default function App() {
 
   function toggleToday(habitId: string, status: DayStatus) {
     const today = getDayKey(new Date())
+    if (status === 'completed') sfx.complete()
     setHabits(prev => prev.map(h => {
       if (h.id !== habitId) return h
       const updated = { ...h, history: { ...h.history, [today]: status } }
@@ -195,6 +213,7 @@ export default function App() {
 
   // --- Countdowns ---
   function saveCountdown(data: Countdown) {
+    sfx.success()
     setCountdowns(prev => {
       const exists = prev.find(c => c.id === data.id)
       return exists ? prev.map(c => c.id === data.id ? data : c) : [...prev, data]
@@ -225,6 +244,7 @@ export default function App() {
 
   // --- Abstinence ---
   function saveAbstinence(data: AbstinenceTracker) {
+    sfx.success()
     setAbstinenceTrackers(prev => {
       const exists = prev.find(t => t.id === data.id)
       return exists ? prev.map(t => t.id === data.id ? data : t) : [...prev, data]
@@ -248,6 +268,7 @@ export default function App() {
       message: `El contador de "Sin ${t?.name.toLowerCase() ?? 'este hábito'}" se reiniciará a cero. Tu récord se conserva.`,
       danger: true,
       onConfirm: () => {
+        sfx.error()
         const nowIso = new Date().toISOString()
         setAbstinenceTrackers(prev => prev.map(x => x.id === id
           ? { ...x, relapses: [...x.relapses, { date: nowIso }], startedAt: nowIso, celebratedMilestones: [] }
@@ -335,6 +356,11 @@ export default function App() {
     input.click()
   }
 
+  function navigate(v: ViewMode) {
+    if (v !== view) sfx.nav()
+    setView(v)
+  }
+
   const activeHabits = habits.filter(h => !h.archivedAt)
   const today = getDayKey(new Date())
 
@@ -347,7 +373,7 @@ export default function App() {
   }
 
   return (
-    <Layout view={view} onNavigate={setView} onOpenSettings={() => setShowSettings(true)} pomodoroRunning={pomodoro.isRunning}>
+    <Layout view={view} onNavigate={navigate} onOpenSettings={() => setShowSettings(true)} pomodoroRunning={pomodoro.isRunning}>
       <header className="flex items-center justify-between px-6 pb-4 border-b border-white/5 sticky top-0 bg-[#0a0a0a] z-10 safe-header-pt">
         <div>
           <h1 className="text-base font-semibold text-white">{PAGE_TITLE[view]}</h1>

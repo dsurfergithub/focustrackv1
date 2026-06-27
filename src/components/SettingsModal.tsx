@@ -103,6 +103,12 @@ export default function SettingsModal({ settings, onChange, onClose }: SettingsM
               onChange={v => set('soundMilestone', v)}
             />
             <Toggle
+              label="Sonidos de interfaz"
+              description="Efectos futuristas al pulsar botones y completar"
+              checked={settings.soundUi}
+              onChange={v => set('soundUi', v)}
+            />
+            <Toggle
               label="Tick suave de fondo"
               description="Sonido de reloj mientras el timer corre"
               checked={settings.soundTick}

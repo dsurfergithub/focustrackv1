@@ -33,6 +33,7 @@ export default function Layout({ view, onNavigate, onOpenSettings, children, pom
             key={id}
             onClick={() => onNavigate(id)}
             title={label}
+            data-sfx="mute"
             className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 group
               ${view === id
                 ? 'bg-[#a3e635]/10 text-[#a3e635]'
@@ -74,6 +75,7 @@ export default function Layout({ view, onNavigate, onOpenSettings, children, pom
           <button
             key={id}
             onClick={() => onNavigate(id)}
+            data-sfx="mute"
             className={`flex-1 py-3 flex flex-col items-center gap-1 text-xs transition-colors
               ${view === id ? 'text-[#a3e635]' : 'text-gray-600'}`}
           >
