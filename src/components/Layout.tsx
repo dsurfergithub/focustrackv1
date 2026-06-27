@@ -1,4 +1,4 @@
-import { LayoutGrid, Timer, BarChart2, Trophy, Settings } from 'lucide-react'
+import { LayoutGrid, Timer, Target, BarChart2, Trophy, Settings } from 'lucide-react'
 import type { ViewMode } from '../types'
 
 interface LayoutProps {
@@ -12,6 +12,7 @@ interface LayoutProps {
 const NAV = [
   { id: 'overview' as ViewMode, icon: LayoutGrid, label: 'Hábitos' },
   { id: 'pomodoro' as ViewMode, icon: Timer, label: 'Pomodoro' },
+  { id: 'goals' as ViewMode, icon: Target, label: 'Metas' },
   { id: 'stats' as ViewMode, icon: BarChart2, label: 'Estadísticas' },
   { id: 'trophies' as ViewMode, icon: Trophy, label: 'Logros' },
 ]
